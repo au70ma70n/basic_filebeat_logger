@@ -1,0 +1,32 @@
+filebeat.inputs:
+- type: log
+  scan_frequency: 5s
+  enabled: true
+  fields_under_root: true
+  paths:
+    - /var/log/mythic/mythic.log
+  json.keys_under_root: true
+  json.add_error_key: true
+  fields:
+    infra:
+      attack_scenario: @@ATTACKSCENARIO@@
+      log:
+        type: rtops
+    c2:
+      program: mythic
+      log:
+        type: events
+
+filebeat.config.modules:
+  path: ${path.config}/modules.d/*.yml
+  reload.enabled: false
+
+setup.template.settings:
+  index.number_of_shards: 3
+
+name: "@@HOSTNAME@@"
+fields_under_root: true
+
+output.logstash:
+  hosts: ["@@HOSTANDPORT@@:5045"]
+  # No SSL configuration needed for non-TLS connection
