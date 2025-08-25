@@ -32,4 +32,4 @@ COPY ../../filebeat_mythic_redelk.yml /usr/share/filebeat/filebeat.yml
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
 
-CMD ["/start.sh"]
+ENTRYPOINT ["/start.sh"]
