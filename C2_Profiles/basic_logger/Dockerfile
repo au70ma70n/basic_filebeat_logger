@@ -27,9 +27,6 @@ COPY [".", "."]
 # Create log directory for filebeat integration
 RUN mkdir -p /var/log/mythic && chmod 755 /var/log/mythic
 
-# Copy Filebeat configuration
-COPY filebeat_mythic_redelk.yml /usr/share/filebeat/filebeat.yml
-
 # Make the startup script executable
 RUN chmod +x /Mythic/start.sh
 RUN chmod +x start.sh

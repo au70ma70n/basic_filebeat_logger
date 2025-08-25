@@ -9,7 +9,7 @@ filebeat.inputs:
   json.add_error_key: true
   fields:
     infra:
-      attack_scenario: @@ATTACKSCENARIO@@
+      attack_scenario: mythic-test
       log:
         type: rtops
     c2:
@@ -24,9 +24,9 @@ filebeat.config.modules:
 setup.template.settings:
   index.number_of_shards: 3
 
-name: "@@HOSTNAME@@"
+name: "mythic-logger"
 fields_under_root: true
 
 output.logstash:
-  hosts: ["@@HOSTANDPORT@@:5045"]
+  hosts: ["x.x.x.x:5045"]
   # No SSL configuration needed for non-TLS connection
