@@ -8,10 +8,15 @@ RUN make build
 
 FROM alpine
 
-RUN apk add --update make curl filebeat
+RUN apk add --update make curl
 
-# Create filebeat directory structure
-RUN mkdir -p /usr/share/filebeat
+# Install Filebeat - download and install the correct binary
+RUN curl -L -O https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-7.17.9-linux-x86_64.tar.gz && \
+    tar xzvf filebeat-7.17.9-linux-x86_64.tar.gz && \
+    mv filebeat-7.17.9-linux-x86_64 /usr/share/filebeat && \
+    rm filebeat-7.17.9-linux-x86_64.tar.gz && \
+    # Install required dependencies for the binary
+    apk add --no-cache libc6-compat
 
 COPY --from=builder /main /main
 
