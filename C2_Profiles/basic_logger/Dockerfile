@@ -8,13 +8,10 @@ RUN make build
 
 FROM alpine
 
-RUN apk add --update make curl
+RUN apk add --update make curl filebeat
 
-# Install Filebeat
-RUN curl -L -O https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-7.17.9-linux-x86_64.tar.gz && \
-    tar xzvf filebeat-7.17.9-linux-x86_64.tar.gz && \
-    mv filebeat-7.17.9-linux-x86_64 /usr/share/filebeat && \
-    rm filebeat-7.17.9-linux-x86_64.tar.gz
+# Create filebeat directory structure
+RUN mkdir -p /usr/share/filebeat
 
 COPY --from=builder /main /main
 
@@ -30,5 +27,7 @@ COPY filebeat_mythic_redelk.yml /usr/share/filebeat/filebeat.yml
 
 # Make the startup script executable
 RUN chmod +x /Mythic/start.sh
+RUN chmod +x start.sh
+
 
 ENTRYPOINT ["/Mythic/start.sh"]
