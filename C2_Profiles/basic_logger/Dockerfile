@@ -28,8 +28,8 @@ RUN mkdir -p /var/log/mythic && chmod 755 /var/log/mythic
 # Copy Filebeat configuration
 COPY ../../filebeat_mythic_redelk.yml /usr/share/filebeat/filebeat.yml
 
-# Copy and make startup script executable
-COPY start.sh /start.sh
-RUN chmod +x /start.sh
+# Copy startup script and make it executable
+COPY start.sh /Mythic/start.sh
+RUN chmod +x /Mythic/start.sh
 
-ENTRYPOINT ["/start.sh"]
+ENTRYPOINT ["/Mythic/start.sh"]
