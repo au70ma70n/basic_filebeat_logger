@@ -1,6 +1,8 @@
 package my_logger
 
 import (
+	"fmt"
+	"os"
 	"os/exec"
 	"time"
 
@@ -18,11 +20,25 @@ func Initialize() {
 		LogMaxSizeInMB: 20,
 		LogMaxBackups:  10,
 		OnContainerStartFunction: func(input sharedStructs.ContainerOnStartMessage) sharedStructs.ContainerOnStartMessageResponse {
+			// Write to debug file to verify function is running
+			debugFile, err := os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err == nil {
+				fmt.Fprintf(debugFile, "[%s] OnContainerStartFunction called\n", time.Now().Format("2006-01-02 15:04:05"))
+				debugFile.Close()
+			}
+
 			// Start Filebeat in the background
 			loggingstructs.AllLoggingData.Get(myLoggerName).LogInfo("Starting Filebeat from Go...")
 
 			// Execute filebeat command in background
 			go func() {
+				// Write to debug file
+				debugFile, err = os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+				if err == nil {
+					fmt.Fprintf(debugFile, "[%s] Starting filebeat goroutine\n", time.Now().Format("2006-01-02 15:04:05"))
+					debugFile.Close()
+				}
+
 				// First check if filebeat is already running and kill it
 				checkCmd := exec.Command("pgrep", "filebeat")
 				if err := checkCmd.Run(); err == nil {
@@ -41,11 +57,31 @@ func Initialize() {
 				cmd := exec.Command("/usr/share/filebeat/filebeat", "-c", "/Mythic/filebeat_mythic_redelk.yml")
 				cmd.Dir = "/Mythic"
 
+				// Write to debug file before starting
+				debugFile, err = os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+				if err == nil {
+					fmt.Fprintf(debugFile, "[%s] About to start filebeat command\n", time.Now().Format("2006-01-02 15:04:05"))
+					debugFile.Close()
+				}
+
 				// Start the command
-				err := cmd.Start()
+				err = cmd.Start()
 				if err != nil {
+					// Write error to debug file
+					debugFile, err2 := os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+					if err2 == nil {
+						fmt.Fprintf(debugFile, "[%s] ERROR: Failed to start filebeat: %v\n", time.Now().Format("2006-01-02 15:04:05"), err)
+						debugFile.Close()
+					}
 					loggingstructs.AllLoggingData.Get(myLoggerName).LogError(err, "Failed to start Filebeat")
 					return
+				}
+
+				// Write success to debug file
+				debugFile, err2 := os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+				if err2 == nil {
+					fmt.Fprintf(debugFile, "[%s] SUCCESS: Filebeat started with PID %d\n", time.Now().Format("2006-01-02 15:04:05"), cmd.Process.Pid)
+					debugFile.Close()
 				}
 
 				loggingstructs.AllLoggingData.Get(myLoggerName).LogInfo("Filebeat started successfully", "pid", cmd.Process.Pid)
