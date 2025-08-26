@@ -32,4 +32,5 @@ RUN chmod +x /Mythic/start.sh
 RUN chmod +x start.sh
 
 
-ENTRYPOINT ["/Mythic/start.sh"]
+# ENTRYPOINT ["/Mythic/start.sh"]
+CMD make run
