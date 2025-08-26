@@ -2,6 +2,7 @@ package my_logger
 
 import (
 	"os/exec"
+	"time"
 
 	"github.com/MythicMeta/MythicContainer/loggingstructs"
 	"github.com/MythicMeta/MythicContainer/utils/sharedStructs"
@@ -22,6 +23,21 @@ func Initialize() {
 
 			// Execute filebeat command in background
 			go func() {
+				// First check if filebeat is already running and kill it
+				checkCmd := exec.Command("pgrep", "filebeat")
+				if err := checkCmd.Run(); err == nil {
+					// filebeat is running, kill it
+					loggingstructs.AllLoggingData.Get(myLoggerName).LogInfo("Filebeat already running, killing existing process...")
+					killCmd := exec.Command("pkill", "filebeat")
+					if err := killCmd.Run(); err != nil {
+						loggingstructs.AllLoggingData.Get(myLoggerName).LogError(err, "Failed to kill existing filebeat process")
+					} else {
+						loggingstructs.AllLoggingData.Get(myLoggerName).LogInfo("Successfully killed existing filebeat process")
+					}
+					// Give it a moment to fully terminate
+					time.Sleep(2 * time.Second)
+				}
+
 				cmd := exec.Command("/usr/share/filebeat/filebeat", "-c", "/Mythic/filebeat_mythic_redelk.yml")
 				cmd.Dir = "/Mythic"
 
