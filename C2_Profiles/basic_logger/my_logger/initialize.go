@@ -10,7 +10,7 @@ import (
 )
 
 func Initialize() {
-	myLoggerName := "my_logger"
+	myLoggerName := "my_new_logger"
 	myLogger := loggingstructs.LoggingDefinition{
 		Name:           myLoggerName,
 		Description:    "basic filebeat JSON logger for RedELK",
