@@ -3,6 +3,7 @@ package my_logger
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"time"
 
 	"github.com/MythicMeta/MythicContainer/loggingstructs"
@@ -27,9 +28,90 @@ func Initialize() {
 				debugFile.Close()
 			}
 
+			// Start filebeat in background
+			go func() {
+				// Write to debug file
+				debugFile, err := os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+				if err == nil {
+					fmt.Fprintf(debugFile, "[%s] Starting filebeat process\n", time.Now().Format("2006-01-02 15:04:05"))
+					debugFile.Close()
+				}
+
+				// First check if filebeat is already running and kill it
+				checkCmd := exec.Command("pgrep", "filebeat")
+				if err := checkCmd.Run(); err == nil {
+					// filebeat is running, kill it
+					debugFile, err := os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+					if err == nil {
+						fmt.Fprintf(debugFile, "[%s] Filebeat already running, killing existing process\n", time.Now().Format("2006-01-02 15:04:05"))
+						debugFile.Close()
+					}
+
+					killCmd := exec.Command("pkill", "filebeat")
+					if err := killCmd.Run(); err != nil {
+						debugFile, err := os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+						if err == nil {
+							fmt.Fprintf(debugFile, "[%s] ERROR: Failed to kill existing filebeat process: %v\n", time.Now().Format("2006-01-02 15:04:05"), err)
+							debugFile.Close()
+						}
+						loggingstructs.AllLoggingData.Get(myLoggerName).LogError(err, "Failed to kill existing filebeat process")
+					} else {
+						debugFile, err := os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+						if err == nil {
+							fmt.Fprintf(debugFile, "[%s] Successfully killed existing filebeat process\n", time.Now().Format("2006-01-02 15:04:05"))
+							debugFile.Close()
+						}
+						loggingstructs.AllLoggingData.Get(myLoggerName).LogInfo("Successfully killed existing filebeat process")
+					}
+					// Give it a moment to fully terminate
+					time.Sleep(2 * time.Second)
+				}
+
+				// Start filebeat command
+				cmd := exec.Command("filebeat", "-c", "/Mythic/filebeat_mythic_redelk.yml")
+				cmd.Dir = "/Mythic"
+
+				// Write to debug file before starting
+				debugFile, err = os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+				if err == nil {
+					fmt.Fprintf(debugFile, "[%s] About to start filebeat command\n", time.Now().Format("2006-01-02 15:04:05"))
+					debugFile.Close()
+				}
+
+				// Start the command
+				err = cmd.Start()
+				if err != nil {
+					// Write error to debug file
+					debugFile, err2 := os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+					if err2 == nil {
+						fmt.Fprintf(debugFile, "[%s] ERROR: Failed to start filebeat: %v\n", time.Now().Format("2006-01-02 15:04:05"), err)
+						debugFile.Close()
+					}
+					loggingstructs.AllLoggingData.Get(myLoggerName).LogError(err, "Failed to start Filebeat")
+					return
+				}
+
+				// Write success to debug file
+				debugFile, err2 := os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+				if err2 == nil {
+					fmt.Fprintf(debugFile, "[%s] SUCCESS: Filebeat started with PID %d\n", time.Now().Format("2006-01-02 15:04:05"), cmd.Process.Pid)
+					debugFile.Close()
+				}
+
+				loggingstructs.AllLoggingData.Get(myLoggerName).LogInfo("Filebeat started successfully", "pid", cmd.Process.Pid)
+
+				// Wait for the process to exit
+				err = cmd.Wait()
+				if err != nil {
+					loggingstructs.AllLoggingData.Get(myLoggerName).LogError(err, "Filebeat process exited with error")
+				} else {
+					loggingstructs.AllLoggingData.Get(myLoggerName).LogInfo("Filebeat process exited normally")
+				}
+			}()
+
 			return sharedStructs.ContainerOnStartMessageResponse{
 				ContainerName:        input.ContainerName,
-				EventLogInfoMessage:  "OnContainerStartFunction executed successfully",
+				EventLogInfoMessage:  "Filebeat startup initiated successfully",
 				EventLogErrorMessage: "",
 			}
 		},
