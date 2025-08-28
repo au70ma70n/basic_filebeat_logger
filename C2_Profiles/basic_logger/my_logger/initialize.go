@@ -67,22 +67,21 @@ func Initialize() {
 					time.Sleep(2 * time.Second)
 				}
 
-				// Check if filebeat exists and get its path
-				whichCmd := exec.Command("which", "filebeat")
-				filebeatPath, err := whichCmd.Output()
-				if err != nil {
+				// Check if filebeat exists at the expected location
+				filebeatPath := "/usr/share/filebeat/filebeat"
+				if _, err := os.Stat(filebeatPath); os.IsNotExist(err) {
 					debugFile, err := os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 					if err == nil {
-						fmt.Fprintf(debugFile, "[%s] ERROR: filebeat not found in PATH: %v\n", time.Now().Format("2006-01-02 15:04:05"), err)
+						fmt.Fprintf(debugFile, "[%s] ERROR: filebeat not found at %s: %v\n", time.Now().Format("2006-01-02 15:04:05"), filebeatPath, err)
 						debugFile.Close()
 					}
-					loggingstructs.AllLoggingData.Get(myLoggerName).LogError(err, "filebeat not found in PATH")
+					loggingstructs.AllLoggingData.Get(myLoggerName).LogError(err, "filebeat not found at expected location")
 					return
 				}
 
 				debugFile, err = os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 				if err == nil {
-					fmt.Fprintf(debugFile, "[%s] Found filebeat at: %s\n", time.Now().Format("2006-01-02 15:04:05"), string(filebeatPath))
+					fmt.Fprintf(debugFile, "[%s] Found filebeat at: %s\n", time.Now().Format("2006-01-02 15:04:05"), filebeatPath)
 					debugFile.Close()
 				}
 
@@ -104,7 +103,7 @@ func Initialize() {
 				}
 
 				// Start filebeat command with full path
-				cmd := exec.Command(string(filebeatPath), "-c", "/Mythic/filebeat_mythic_redelk.yml")
+				cmd := exec.Command(filebeatPath, "-c", "/Mythic/filebeat_mythic_redelk.yml")
 				cmd.Dir = "/Mythic"
 
 				// Write to debug file before starting
