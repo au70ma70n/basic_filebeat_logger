@@ -67,8 +67,44 @@ func Initialize() {
 					time.Sleep(2 * time.Second)
 				}
 
-				// Start filebeat command
-				cmd := exec.Command("filebeat", "-c", "/Mythic/filebeat_mythic_redelk.yml")
+				// Check if filebeat exists and get its path
+				whichCmd := exec.Command("which", "filebeat")
+				filebeatPath, err := whichCmd.Output()
+				if err != nil {
+					debugFile, err := os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+					if err == nil {
+						fmt.Fprintf(debugFile, "[%s] ERROR: filebeat not found in PATH: %v\n", time.Now().Format("2006-01-02 15:04:05"), err)
+						debugFile.Close()
+					}
+					loggingstructs.AllLoggingData.Get(myLoggerName).LogError(err, "filebeat not found in PATH")
+					return
+				}
+
+				debugFile, err = os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+				if err == nil {
+					fmt.Fprintf(debugFile, "[%s] Found filebeat at: %s\n", time.Now().Format("2006-01-02 15:04:05"), string(filebeatPath))
+					debugFile.Close()
+				}
+
+				// Check if config file exists
+				if _, err := os.Stat("/Mythic/filebeat_mythic_redelk.yml"); os.IsNotExist(err) {
+					debugFile, err = os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+					if err == nil {
+						fmt.Fprintf(debugFile, "[%s] ERROR: Config file /Mythic/filebeat_mythic_redelk.yml does not exist\n", time.Now().Format("2006-01-02 15:04:05"))
+						debugFile.Close()
+					}
+					loggingstructs.AllLoggingData.Get(myLoggerName).LogError(err, "Config file does not exist")
+					return
+				}
+
+				debugFile, err = os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+				if err == nil {
+					fmt.Fprintf(debugFile, "[%s] Config file exists, starting filebeat\n", time.Now().Format("2006-01-02 15:04:05"))
+					debugFile.Close()
+				}
+
+				// Start filebeat command with full path
+				cmd := exec.Command(string(filebeatPath), "-c", "/Mythic/filebeat_mythic_redelk.yml")
 				cmd.Dir = "/Mythic"
 
 				// Write to debug file before starting
