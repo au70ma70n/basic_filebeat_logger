@@ -6,4 +6,4 @@
 
 # Start the Mythic logger
 echo "Starting Mythic logger..."
-# make run
+make run
