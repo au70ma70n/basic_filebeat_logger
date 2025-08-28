@@ -23,7 +23,7 @@ func Initialize() {
 			// Write to debug file to verify function is running
 			debugFile, err := os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err == nil {
-				fmt.Fprintf(debugFile, "[%s] OnContainerStartFunction called for container: %s, operation: %d\n",
+				fmt.Fprintf(debugFile, "[%s] OnContainerStartFunction called for container: %s, operation: %d - VERSION 2.0\n",
 					time.Now().Format("2006-01-02 15:04:05"), input.ContainerName, input.OperationID)
 				debugFile.Close()
 			}
