@@ -79,10 +79,36 @@ func Initialize() {
 					return
 				}
 
+				// Check if filebeat is executable
+				if info, err := os.Stat(filebeatPath); err == nil {
+					if info.Mode()&0111 == 0 {
+						debugFile, err := os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+						if err == nil {
+							fmt.Fprintf(debugFile, "[%s] ERROR: filebeat at %s is not executable\n", time.Now().Format("2006-01-02 15:04:05"), filebeatPath)
+							debugFile.Close()
+						}
+						loggingstructs.AllLoggingData.Get(myLoggerName).LogError(fmt.Errorf("filebeat not executable"), "filebeat not executable")
+						return
+					}
+				}
+
 				debugFile, err = os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 				if err == nil {
 					fmt.Fprintf(debugFile, "[%s] Found filebeat at: %s\n", time.Now().Format("2006-01-02 15:04:05"), filebeatPath)
 					debugFile.Close()
+				}
+
+				// List contents of /usr/share/filebeat/ directory for debugging
+				if files, err := os.ReadDir("/usr/share/filebeat/"); err == nil {
+					debugFile, err := os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+					if err == nil {
+						fmt.Fprintf(debugFile, "[%s] Contents of /usr/share/filebeat/: ", time.Now().Format("2006-01-02 15:04:05"))
+						for _, file := range files {
+							fmt.Fprintf(debugFile, "%s ", file.Name())
+						}
+						fmt.Fprintf(debugFile, "\n")
+						debugFile.Close()
+					}
 				}
 
 				// Check if config file exists
@@ -109,7 +135,7 @@ func Initialize() {
 				// Write to debug file before starting
 				debugFile, err = os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 				if err == nil {
-					fmt.Fprintf(debugFile, "[%s] About to start filebeat command\n", time.Now().Format("2006-01-02 15:04:05"))
+					fmt.Fprintf(debugFile, "[%s] About to start filebeat command with path: %s\n", time.Now().Format("2006-01-02 15:04:05"), filebeatPath)
 					debugFile.Close()
 				}
 
