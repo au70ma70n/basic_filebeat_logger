@@ -28,5 +28,5 @@ name: "mythic-logger"
 fields_under_root: true
 
 output.logstash:
-  hosts: ["x.x.x.x:5045"]
+  hosts: ["redelk-logstash:5044"]
   # No SSL configuration needed for non-TLS connection
