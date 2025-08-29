@@ -23,7 +23,7 @@ func Initialize() {
 			// Write to debug file to verify function is running
 			debugFile, err := os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err == nil {
-				fmt.Fprintf(debugFile, "[%s] OnContainerStartFunction called for container: %s, operation: %d - VERSION 3.0 - NEW CODE RUNNING\n",
+				fmt.Fprintf(debugFile, "[%s] OnContainerStartFunction called for container: %s, operation: %d - VERSION 4.0 - ENHANCED PROCESS MANAGEMENT\n",
 					time.Now().Format("2006-01-02 15:04:05"), input.ContainerName, input.OperationID)
 				debugFile.Close()
 			}
@@ -38,33 +38,104 @@ func Initialize() {
 				}
 
 				// First check if filebeat is already running and kill it
-				checkCmd := exec.Command("pgrep", "filebeat")
-				if err := checkCmd.Run(); err == nil {
-					// filebeat is running, kill it
+				debugFile, err = os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+				if err == nil {
+					fmt.Fprintf(debugFile, "[%s] Checking for existing filebeat processes...\n", time.Now().Format("2006-01-02 15:04:05"))
+					debugFile.Close()
+				}
+
+				// Use pgrep -f to find all filebeat processes (more comprehensive)
+				checkCmd := exec.Command("pgrep", "-f", "filebeat")
+				output, err := checkCmd.Output()
+				if err == nil && len(output) > 0 {
+					// filebeat processes found, kill them
 					debugFile, err := os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 					if err == nil {
-						fmt.Fprintf(debugFile, "[%s] Filebeat already running, killing existing process\n", time.Now().Format("2006-01-02 15:04:05"))
+						fmt.Fprintf(debugFile, "[%s] Found existing filebeat processes: %s\n", time.Now().Format("2006-01-02 15:04:05"), string(output))
 						debugFile.Close()
 					}
 
-					killCmd := exec.Command("pkill", "filebeat")
+					// Try graceful kill first
+					killCmd := exec.Command("pkill", "-TERM", "-f", "filebeat")
 					if err := killCmd.Run(); err != nil {
 						debugFile, err := os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 						if err == nil {
-							fmt.Fprintf(debugFile, "[%s] ERROR: Failed to kill existing filebeat process: %v\n", time.Now().Format("2006-01-02 15:04:05"), err)
+							fmt.Fprintf(debugFile, "[%s] WARNING: Failed to gracefully kill filebeat processes: %v\n", time.Now().Format("2006-01-02 15:04:05"), err)
 							debugFile.Close()
 						}
-						loggingstructs.AllLoggingData.Get(myLoggerName).LogError(err, "Failed to kill existing filebeat process")
 					} else {
 						debugFile, err := os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 						if err == nil {
-							fmt.Fprintf(debugFile, "[%s] Successfully killed existing filebeat process\n", time.Now().Format("2006-01-02 15:04:05"))
+							fmt.Fprintf(debugFile, "[%s] Sent SIGTERM to filebeat processes\n", time.Now().Format("2006-01-02 15:04:05"))
 							debugFile.Close()
 						}
-						loggingstructs.AllLoggingData.Get(myLoggerName).LogInfo("Successfully killed existing filebeat process")
 					}
-					// Give it a moment to fully terminate
+
+					// Wait a moment for graceful termination
+					time.Sleep(3 * time.Second)
+
+					// Check if processes are still running
+					checkCmd2 := exec.Command("pgrep", "-f", "filebeat")
+					output2, err2 := checkCmd2.Output()
+					if err2 == nil && len(output2) > 0 {
+						// Processes still running, force kill with SIGKILL
+						debugFile, err := os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+						if err == nil {
+							fmt.Fprintf(debugFile, "[%s] Processes still running after SIGTERM, force killing: %s\n", time.Now().Format("2006-01-02 15:04:05"), string(output2))
+							debugFile.Close()
+						}
+
+						forceKillCmd := exec.Command("pkill", "-KILL", "-f", "filebeat")
+						if err := forceKillCmd.Run(); err != nil {
+							debugFile, err := os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+							if err == nil {
+								fmt.Fprintf(debugFile, "[%s] ERROR: Failed to force kill filebeat processes: %v\n", time.Now().Format("2006-01-02 15:04:05"), err)
+								debugFile.Close()
+							}
+							loggingstructs.AllLoggingData.Get(myLoggerName).LogError(err, "Failed to force kill filebeat processes")
+						} else {
+							debugFile, err := os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+							if err == nil {
+								fmt.Fprintf(debugFile, "[%s] Successfully force killed filebeat processes\n", time.Now().Format("2006-01-02 15:04:05"))
+								debugFile.Close()
+							}
+							loggingstructs.AllLoggingData.Get(myLoggerName).LogInfo("Successfully force killed filebeat processes")
+						}
+					} else {
+						debugFile, err := os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+						if err == nil {
+							fmt.Fprintf(debugFile, "[%s] Successfully killed filebeat processes with SIGTERM\n", time.Now().Format("2006-01-02 15:04:05"))
+							debugFile.Close()
+						}
+						loggingstructs.AllLoggingData.Get(myLoggerName).LogInfo("Successfully killed filebeat processes with SIGTERM")
+					}
+
+					// Final wait to ensure processes are fully terminated
 					time.Sleep(2 * time.Second)
+
+					// Final verification that processes are gone
+					checkCmd3 := exec.Command("pgrep", "-f", "filebeat")
+					output3, err3 := checkCmd3.Output()
+					if err3 == nil && len(output3) > 0 {
+						debugFile, err := os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+						if err == nil {
+							fmt.Fprintf(debugFile, "[%s] WARNING: Filebeat processes still running after kill attempts: %s\n", time.Now().Format("2006-01-02 15:04:05"), string(output3))
+							debugFile.Close()
+						}
+						loggingstructs.AllLoggingData.Get(myLoggerName).LogError(fmt.Errorf("processes still running"), "Filebeat processes still running after kill attempts")
+					} else {
+						debugFile, err := os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+						if err == nil {
+							fmt.Fprintf(debugFile, "[%s] Verified: No filebeat processes running\n", time.Now().Format("2006-01-02 15:04:05"))
+							debugFile.Close()
+						}
+					}
+				} else {
+					debugFile, err := os.OpenFile("/var/log/mythic/container_start_debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+					if err == nil {
+						fmt.Fprintf(debugFile, "[%s] No existing filebeat processes found\n", time.Now().Format("2006-01-02 15:04:05"))
+						debugFile.Close()
+					}
 				}
 
 				// Check if filebeat exists at the expected location
